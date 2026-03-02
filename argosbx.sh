@@ -806,9 +806,10 @@ fi
 }
 
 xrsbout(){
-if [ -e "$HOME/agsbx/xr.json" ]; then
-sed -i '${s/,\s*$//}' "$HOME/agsbx/xr.json"
-cat >> "$HOME/agsbx/xr.json" <<EOF
+    # ---------- Xray 部分 ----------
+    if [ -e "$HOME/agsbx/xr.json" ]; then
+        sed -i '${s/,\s*$//}' "$HOME/agsbx/xr.json"
+        cat >> "$HOME/agsbx/xr.json" <<EOF
   ],
   "outbounds": [
     {
@@ -869,8 +870,10 @@ cat >> "$HOME/agsbx/xr.json" <<EOF
   }
 }
 EOF
-if pidof systemd >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
-cat > /etc/systemd/system/xr.service <<EOF
+
+        # Xray 启动
+        if pidof systemd >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
+            cat > /etc/systemd/system/xr.service <<EOF
 [Unit]
 Description=xr service
 After=network.target
@@ -886,32 +889,38 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl daemon-reload >/dev/null 2>&1
-systemctl enable xr >/dev/null 2>&1
-systemctl start xr >/dev/null 2>&1
-elif command -v rc-service >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
-cat > /etc/init.d/xray <<EOF
+            systemctl daemon-reload >/dev/null 2>&1
+            systemctl enable xr >/dev/null 2>&1
+            systemctl start xr >/dev/null 2>&1
+        elif command -v rc-service >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
+            cat > /etc/init.d/xray <<EOF
 #!/sbin/openrc-run
 description="xr service"
 command="/root/agsbx/xray"
 command_args="run -c /root/agsbx/xr.json"
 command_background=yes
 pidfile="/run/xray.pid"
-command_background="yes"
 depend() {
-need net
+    need net
 }
 EOF
-chmod +x /etc/init.d/xray >/dev/null 2>&1
-rc-update add xray default >/dev/null 2>&1
-rc-service xray start >/dev/null 2>&1
-else
-nohup "$HOME/agsbx/xray" run -c "$HOME/agsbx/xr.json" >/dev/null 2>&1 &
-fi
-fi
-if [ -e "$HOME/agsbx/sb.json" ]; then
-sed -i '${s/,\s*$//}' "$HOME/agsbx/sb.json"
-cat >> "$HOME/agsbx/sb.json" <<EOF
+            chmod +x /etc/init.d/xray >/dev/null 2>&1
+            rc-update add xray default >/dev/null 2>&1
+            rc-service xray start >/dev/null 2>&1
+            sleep 2
+            if ! pgrep -f "xray.*xr.json" >/dev/null 2>&1; then
+                echo "Xray OpenRC 启动失败，尝试直接 nohup 启动..."
+                nohup "$HOME/agsbx/xray" run -c "$HOME/agsbx/xr.json" >/dev/null 2>&1 &
+            fi
+        else
+            nohup "$HOME/agsbx/xray" run -c "$HOME/agsbx/xr.json" >/dev/null 2>&1 &
+        fi
+    fi
+
+    # ---------- Sing-box 部分 ----------
+    if [ -e "$HOME/agsbx/sb.json" ]; then
+        sed -i '${s/,\s*$//}' "$HOME/agsbx/sb.json"
+        cat >> "$HOME/agsbx/sb.json" <<EOF
   ],
   "outbounds": [
     {
@@ -960,8 +969,10 @@ cat >> "$HOME/agsbx/sb.json" <<EOF
   }
 }
 EOF
-if pidof systemd >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
-cat > /etc/systemd/system/sb.service <<EOF
+
+        # Sing-box 启动
+        if pidof systemd >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
+            cat > /etc/systemd/system/sb.service <<EOF
 [Unit]
 Description=sb service
 After=network.target
@@ -977,12 +988,11 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl daemon-reload >/dev/null 2>&1
-systemctl enable sb >/dev/null 2>&1
-systemctl start sb >/dev/null 2>&1
-elif command -v rc-service >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
-elif command -v rc-service >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
-    cat > /etc/init.d/sing-box <<EOF
+            systemctl daemon-reload >/dev/null 2>&1
+            systemctl enable sb >/dev/null 2>&1
+            systemctl start sb >/dev/null 2>&1
+        elif command -v rc-service >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
+            cat > /etc/init.d/sing-box <<EOF
 #!/sbin/openrc-run
 description="sb service"
 command="/root/agsbx/sing-box"
@@ -993,16 +1003,19 @@ depend() {
     need net
 }
 EOF
-    chmod +x /etc/init.d/sing-box >/dev/null 2>&1
-    rc-update add sing-box default >/dev/null 2>&1
-    rc-service sing-box start >/dev/null 2>&1
-    # 等待 2 秒，检查进程是否启动
-    sleep 2
-    if ! pgrep -f "sing-box.*sb.json" >/dev/null 2>&1; then
-        echo "OpenRC 启动失败，尝试直接 nohup 启动..."
-        nohup "$HOME/agsbx/sing-box" run -c "$HOME/agsbx/sb.json" >/dev/null 2>&1 &
+            chmod +x /etc/init.d/sing-box >/dev/null 2>&1
+            rc-update add sing-box default >/dev/null 2>&1
+            rc-service sing-box start >/dev/null 2>&1
+            sleep 2
+            if ! pgrep -f "sing-box.*sb.json" >/dev/null 2>&1; then
+                echo "Sing-box OpenRC 启动失败，尝试直接 nohup 启动..."
+                nohup "$HOME/agsbx/sing-box" run -c "$HOME/agsbx/sb.json" >/dev/null 2>&1 &
+            fi
+        else
+            nohup "$HOME/agsbx/sing-box" run -c "$HOME/agsbx/sb.json" >/dev/null 2>&1 &
+        fi
     fi
-fi}  
+}   # 函数结束大括号
 ins(){
 if [ "$hyp" != yes ] && [ "$tup" != yes ] && [ "$anp" != yes ] && [ "$arp" != yes ] && [ "$ssp" != yes ]; then
 installxray
