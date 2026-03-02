@@ -1002,7 +1002,7 @@ EOF
         echo "OpenRC 启动失败，尝试直接 nohup 启动..."
         nohup "$HOME/agsbx/sing-box" run -c "$HOME/agsbx/sb.json" >/dev/null 2>&1 &
     fi
-fi   # ← 注意这里只有一个 fi，没有 }
+fi   
 ins(){
 if [ "$hyp" != yes ] && [ "$tup" != yes ] && [ "$anp" != yes ] && [ "$arp" != yes ] && [ "$ssp" != yes ]; then
 installxray
