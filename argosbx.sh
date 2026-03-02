@@ -981,19 +981,19 @@ systemctl daemon-reload >/dev/null 2>&1
 systemctl enable sb >/dev/null 2>&1
 systemctl start sb >/dev/null 2>&1
 elif command -v rc-service >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
-cat > /etc/init.d/sing-box <<EOF
+elif command -v rc-service >/dev/null 2>&1 && [ "$EUID" -eq 0 ]; then
+    cat > /etc/init.d/sing-box <<EOF
 #!/sbin/openrc-run
 description="sb service"
 command="/root/agsbx/sing-box"
 command_args="run -c /root/agsbx/sb.json"
 command_background=yes
 pidfile="/run/sing-box.pid"
-command_background="yes"
 depend() {
-need net
+    need net
 }
 EOF
-chmod +x /etc/init.d/sing-box >/dev/null 2>&1
+    chmod +x /etc/init.d/sing-box >/dev/null 2>&1
     rc-update add sing-box default >/dev/null 2>&1
     rc-service sing-box start >/dev/null 2>&1
     # 等待 2 秒，检查进程是否启动
@@ -1002,8 +1002,7 @@ chmod +x /etc/init.d/sing-box >/dev/null 2>&1
         echo "OpenRC 启动失败，尝试直接 nohup 启动..."
         nohup "$HOME/agsbx/sing-box" run -c "$HOME/agsbx/sb.json" >/dev/null 2>&1 &
     fi
-fi
-}
+fi   # ← 注意这里只有一个 fi，没有 }
 ins(){
 if [ "$hyp" != yes ] && [ "$tup" != yes ] && [ "$anp" != yes ] && [ "$arp" != yes ] && [ "$ssp" != yes ]; then
 installxray
