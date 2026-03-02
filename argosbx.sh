@@ -151,10 +151,65 @@ sbcore=$("$HOME/agsbx/xray" version 2>/dev/null | awk '/^Xray/{print $2}')
 echo "已安装Xray正式版内核：$sbcore"
 }
 upsingbox(){
-url="https://github.com/yonggekkk/argosbx/releases/download/argosbx/sing-box-$cpu"; out="$HOME/agsbx/sing-box"; (command -v curl>/dev/null 2>&1 && curl -Lo "$out" -# --retry 2 "$url") || (command -v wget>/dev/null 2>&1 && timeout 3 wget -O "$out" --tries=2 "$url")
-chmod +x "$HOME/agsbx/sing-box"
-sbcore=$("$HOME/agsbx/sing-box" version 2>/dev/null | awk '/version/{print $NF}')
-echo "已安装Sing-box正式版内核：$sbcore"
+    local arch="" latest_version="" url="" tmp_dir="" tarball=""
+    
+    # 根据 cpu 变量确定官方架构名称
+    case $cpu in
+        amd64) arch="amd64" ;;
+        arm64) arch="arm64" ;;
+        *) echo "不支持的架构: $cpu"; return 1 ;;
+    esac
+
+    # 获取最新版本号（优先使用 GitHub API）
+    if command -v curl >/dev/null 2>&1; then
+        latest_version=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep 'tag_name' | cut -d'"' -f4)
+    elif command -v wget >/dev/null 2>&1; then
+        latest_version=$(wget -qO- https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep 'tag_name' | cut -d'"' -f4)
+    fi
+
+    if [ -n "$latest_version" ]; then
+        # 构建官方下载链接（去掉版本号前的 v）
+        version_number=${latest_version#v}
+        tarball="sing-box-${version_number}-linux-${arch}.tar.gz"
+        url="https://github.com/SagerNet/sing-box/releases/download/${latest_version}/${tarball}"
+        
+        # 创建临时目录
+        tmp_dir=$(mktemp -d)
+        cd "$tmp_dir" || { echo "无法创建临时目录"; return 1; }
+        
+        echo "正在从官方下载 Sing-box ${latest_version} ..."
+        if command -v curl >/dev/null 2>&1; then
+            curl -L -o "$tarball" "$url" || { echo "下载失败"; rm -rf "$tmp_dir"; return 1; }
+        elif command -v wget >/dev/null 2>&1; then
+            wget -O "$tarball" "$url" || { echo "下载失败"; rm -rf "$tmp_dir"; return 1; }
+        else
+            echo "未找到 curl 或 wget"; rm -rf "$tmp_dir"; return 1
+        fi
+        
+        # 解压
+        tar xzf "$tarball" || { echo "解压失败"; rm -rf "$tmp_dir"; return 1; }
+        
+        # 定位二进制文件（解压后的目录名可能包含版本号）
+        if [ -f "sing-box-${version_number}-linux-${arch}/sing-box" ]; then
+            mv "sing-box-${version_number}-linux-${arch}/sing-box" "$HOME/agsbx/sing-box"
+            echo "已从官方更新 Sing-box 到 ${latest_version}"
+        else
+            echo "未找到二进制文件，使用备用地址"
+            url="https://github.com/yonggekkk/argosbx/releases/download/argosbx/sing-box-$cpu"
+            (command -v curl >/dev/null 2>&1 && curl -Lo "$HOME/agsbx/sing-box" -# --retry 2 "$url") || (command -v wget >/dev/null 2>&1 && timeout 3 wget -O "$HOME/agsbx/sing-box" --tries=2 "$url")
+        fi
+        
+        # 清理临时目录
+        cd / && rm -rf "$tmp_dir"
+    else
+        echo "获取最新版本失败，使用默认地址"
+        url="https://github.com/yonggekkk/argosbx/releases/download/argosbx/sing-box-$cpu"
+        (command -v curl >/dev/null 2>&1 && curl -Lo "$HOME/agsbx/sing-box" -# --retry 2 "$url") || (command -v wget >/dev/null 2>&1 && timeout 3 wget -O "$HOME/agsbx/sing-box" --tries=2 "$url")
+    fi
+
+    chmod +x "$HOME/agsbx/sing-box"
+    sbcore=$("$HOME/agsbx/sing-box" version 2>/dev/null | awk '/version/{print $NF}')
+    echo "已安装 Sing-box 内核：$sbcore"
 }
 insuuid(){
 if [ -z "$uuid" ] && [ ! -e "$HOME/agsbx/uuid" ]; then
