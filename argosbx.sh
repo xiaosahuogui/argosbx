@@ -994,11 +994,14 @@ need net
 }
 EOF
 chmod +x /etc/init.d/sing-box >/dev/null 2>&1
-rc-update add sing-box default >/dev/null 2>&1
-rc-service sing-box start >/dev/null 2>&1
-else
-nohup "$HOME/agsbx/sing-box" run -c "$HOME/agsbx/sb.json" >/dev/null 2>&1 &
-fi
+    rc-update add sing-box default >/dev/null 2>&1
+    rc-service sing-box start >/dev/null 2>&1
+    # 等待 2 秒，检查进程是否启动
+    sleep 2
+    if ! pgrep -f "sing-box.*sb.json" >/dev/null 2>&1; then
+        echo "OpenRC 启动失败，尝试直接 nohup 启动..."
+        nohup "$HOME/agsbx/sing-box" run -c "$HOME/agsbx/sb.json" >/dev/null 2>&1 &
+    fi
 fi
 }
 ins(){
