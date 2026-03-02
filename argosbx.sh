@@ -804,7 +804,6 @@ else
 sop=soptargo
 fi
 }
-
 xrsbout(){
     # ---------- Xray 部分 ----------
     if [ -e "$HOME/agsbx/xr.json" ]; then
@@ -1015,7 +1014,8 @@ EOF
             nohup "$HOME/agsbx/sing-box" run -c "$HOME/agsbx/sb.json" >/dev/null 2>&1 &
         fi
     fi
-}   # 函数结束大括号
+}
+
 ins(){
 if [ "$hyp" != yes ] && [ "$tup" != yes ] && [ "$anp" != yes ] && [ "$arp" != yes ] && [ "$ssp" != yes ]; then
 installxray
