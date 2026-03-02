@@ -151,65 +151,95 @@ sbcore=$("$HOME/agsbx/xray" version 2>/dev/null | awk '/^Xray/{print $2}')
 echo "已安装Xray正式版内核：$sbcore"
 }
 upsingbox(){
+    # 日志重定向
+    exec 3>&1 4>&2
+    exec >> /tmp/upsingbox.log 2>&1
+    set -x
+
+    echo "===== $(date): 开始 upsingbox ====="
     local arch="" latest_version="" url="" tmp_dir="" tarball=""
     
-    # 根据 cpu 变量确定官方架构名称
     case $cpu in
         amd64) arch="amd64" ;;
         arm64) arch="arm64" ;;
         *) echo "不支持的架构: $cpu"; return 1 ;;
     esac
+    echo "CPU架构: $cpu -> arch=$arch"
 
-    # 获取最新版本号（优先使用 GitHub API）
+    # 获取最新版本号
+    echo "获取最新版本号..."
     if command -v curl >/dev/null 2>&1; then
         latest_version=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep 'tag_name' | cut -d'"' -f4)
     elif command -v wget >/dev/null 2>&1; then
         latest_version=$(wget -qO- https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep 'tag_name' | cut -d'"' -f4)
     fi
+    echo "获取到的最新版本: $latest_version"
 
     if [ -n "$latest_version" ]; then
-        # 构建官方下载链接（去掉版本号前的 v）
         version_number=${latest_version#v}
         tarball="sing-box-${version_number}-linux-${arch}.tar.gz"
         url="https://github.com/SagerNet/sing-box/releases/download/${latest_version}/${tarball}"
+        echo "下载链接: $url"
         
-        # 创建临时目录
         tmp_dir=$(mktemp -d)
-        cd "$tmp_dir" || { echo "无法创建临时目录"; return 1; }
+        cd "$tmp_dir" || { echo "无法进入临时目录 $tmp_dir"; return 1; }
+        echo "临时目录: $tmp_dir"
         
         echo "正在从官方下载 Sing-box ${latest_version} ..."
         if command -v curl >/dev/null 2>&1; then
-            curl -L -o "$tarball" "$url" || { echo "下载失败"; rm -rf "$tmp_dir"; return 1; }
+            curl -L -o "$tarball" "$url" || { echo "curl 下载失败"; rm -rf "$tmp_dir"; return 1; }
         elif command -v wget >/dev/null 2>&1; then
-            wget -O "$tarball" "$url" || { echo "下载失败"; rm -rf "$tmp_dir"; return 1; }
+            wget -O "$tarball" "$url" || { echo "wget 下载失败"; rm -rf "$tmp_dir"; return 1; }
         else
             echo "未找到 curl 或 wget"; rm -rf "$tmp_dir"; return 1
         fi
+        echo "下载完成，文件大小: $(ls -lh "$tarball")"
         
-        # 解压
+        echo "开始解压 $tarball ..."
         tar xzf "$tarball" || { echo "解压失败"; rm -rf "$tmp_dir"; return 1; }
+        echo "解压完成"
         
-        # 定位二进制文件（解压后的目录名可能包含版本号）
         if [ -f "sing-box-${version_number}-linux-${arch}/sing-box" ]; then
+            echo "找到二进制文件，移动到 $HOME/agsbx/sing-box"
             mv "sing-box-${version_number}-linux-${arch}/sing-box" "$HOME/agsbx/sing-box"
-            echo "已从官方更新 Sing-box 到 ${latest_version}"
+            echo "移动完成"
         else
             echo "未找到二进制文件，使用备用地址"
             url="https://github.com/yonggekkk/argosbx/releases/download/argosbx/sing-box-$cpu"
             (command -v curl >/dev/null 2>&1 && curl -Lo "$HOME/agsbx/sing-box" -# --retry 2 "$url") || (command -v wget >/dev/null 2>&1 && timeout 3 wget -O "$HOME/agsbx/sing-box" --tries=2 "$url")
         fi
         
-        # 清理临时目录
         cd / && rm -rf "$tmp_dir"
+        echo "临时目录已清理"
     else
         echo "获取最新版本失败，使用默认地址"
         url="https://github.com/yonggekkk/argosbx/releases/download/argosbx/sing-box-$cpu"
         (command -v curl >/dev/null 2>&1 && curl -Lo "$HOME/agsbx/sing-box" -# --retry 2 "$url") || (command -v wget >/dev/null 2>&1 && timeout 3 wget -O "$HOME/agsbx/sing-box" --tries=2 "$url")
     fi
 
+    echo "设置可执行权限..."
     chmod +x "$HOME/agsbx/sing-box"
-    sbcore=$("$HOME/agsbx/sing-box" version 2>/dev/null | awk '/version/{print $NF}')
-    echo "已安装 Sing-box 内核：$sbcore"
+
+    # ========== 新增：安全获取版本号，避免系统崩溃 ==========
+    echo "尝试安全获取 Sing-box 版本（限制资源）..."
+    # 使用 ulimit 限制内存使用（如 50MB）和 CPU 时间
+    if command -v ulimit >/dev/null 2>&1; then
+        ulimit -v 51200  # 限制虚拟内存 50MB
+        ulimit -t 5      # 限制 CPU 时间 5 秒
+    fi
+    # 在子 shell 中运行，防止影响主脚本
+    sbcore=$( (timeout 5 "$HOME/agsbx/sing-box" version 2>/dev/null | awk '/version/{print $NF}') 2>/dev/null )
+    if [ -n "$sbcore" ]; then
+        echo "已安装 Sing-box 内核：$sbcore"
+    else
+        echo "警告：无法获取 Sing-box 版本（可能因内存不足或二进制不兼容），但安装已继续。"
+    fi
+
+    echo "===== $(date): upsingbox 结束 ====="
+
+    # 恢复终端输出
+    exec 1>&3 2>&4
+    exec 3>&- 4>&-
 }
 insuuid(){
 if [ -z "$uuid" ] && [ ! -e "$HOME/agsbx/uuid" ]; then
