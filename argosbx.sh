@@ -71,6 +71,16 @@ amd64|x86_64) cpu=amd64;;
 *) echo "目前脚本不支持$(uname -m)架构" && exit
 esac
 mkdir -p "$HOME/agsbx"
+if [ ! -f sbx_update ]; then
+echo "执行脚本中，请稍后"
+if command -v apk >/dev/null 2>&1; then
+apk update >/dev/null 2>&1
+apk add gcompat libc6-compat >/dev/null 2>&1
+elif command -v apt >/dev/null 2>&1; then
+apt update >/dev/null 2>&1 && apt install coreutils util-linux -y >/dev/null 2>&1
+fi
+touch sbx_update
+fi
 v4v6(){
 v4=$( (command -v curl >/dev/null 2>&1 && curl -s4m5 -k "$v46url" 2>/dev/null) || (command -v wget >/dev/null 2>&1 && timeout 3 wget -4 --tries=2 -qO- "$v46url" 2>/dev/null) )
 v6=$( (command -v curl >/dev/null 2>&1 && curl -s6m5 -k "$v46url" 2>/dev/null) || (command -v wget >/dev/null 2>&1 && timeout 3 wget -6 --tries=2 -qO- "$v46url" 2>/dev/null) )
@@ -1513,7 +1523,7 @@ fi
 
 if [ "$1" = "del" ]; then
 cleandel
-rm -rf "$HOME/agsbx" "$HOME/agsb"
+rm -rf sbx_update "$HOME/agsbx" "$HOME/agsb"
 echo "卸载完成"
 echo "欢迎继续使用甬哥侃侃侃ygkkk的Argosbx一键无交互小钢炮脚本💣" && sleep 2
 echo
